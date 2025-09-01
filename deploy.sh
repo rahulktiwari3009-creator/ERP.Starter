@@ -3,7 +3,7 @@ cd path_to_your_web_project   # <-- replace with your project folder path
 
 # Step 1: Set homepage for React / Vite projects
 # (Skip if Next.js, handled by static export)
-# npm pkg set homepage=https://yourusername.github.io/your-repo-name
+# npm pkg set homepage=https://rahulktiwari3009-creator
 
 # Step 2: Install dependencies and build
 npm install
