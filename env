@@ -1,0 +1,15 @@
+# ===== LAST-MINUTE GITHUB + SUPABASE DEPLOYMENT (Next.js static export) =====
+cd path_to_your_nextjs_project
+
+git add .
+git commit -m "Final last-minute push"
+git push origin main
+
+npm install
+npm run build
+npm run export
+
+npm install --save-dev gh-pages
+npx gh-pages -d out
+
+echo "🎯 Deployment complete! Check URL: https://yourusername.github.io/your-repo-name/"
