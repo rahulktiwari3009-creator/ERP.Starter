@@ -1,0 +1,30 @@
+// Save as: components/TestSupabase.js
+"use client" // Next.js 13+ ke liye
+import { useState } from "react"
+import { createClient } from "@supabase/supabase-js"
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+export default function TestSupabase() {
+  const [result, setResult] = useState("")
+
+  const handleTest = async () => {
+    const { data, error } = await supabase.from("your_table").select("*").limit(1)
+    if (error) {
+      setResult("❌ Supabase not connected: " + error.message)
+    } else {
+      setResult("✅ Supabase connected! Data fetched: " + JSON.stringify(data))
+    }
+  }
+
+  return (
+    <div style={{ margin: "20px 0" }}>
+      <button onClick={handleTest} style={{ padding: "10px 20px", cursor: "pointer" }}>
+        Test Supabase Connection
+      </button>
+      <div style={{ marginTop: "10px" }}>{result}</div>
+    </div>
+  )
+}
