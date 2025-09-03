@@ -1,0 +1,93 @@
+name: Deploy to Vercel (multi-env)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment to deploy (production|users)"
+        required: true
+        default: "production"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - env_name: production
+            vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_PROD }}
+            supabase_db_url: ${{ secrets.SUPABASE_DB_URL_PROD }}
+            vercel_env: production     # for `vercel pull`
+            prod_flag: "--prod"
+          - env_name: users
+            vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_USERS }}
+            supabase_db_url: ${{ secrets.SUPABASE_DB_URL_USERS }}
+            vercel_env: preview        # preview env for non-prod
+            prod_flag: ""              # no --prod
+
+    # Allow manual single-env run
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && matrix.env_name == inputs.env)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm ci
+
+      # (Optional) run tests
+      - name: Test
+        run: npm test --if-present
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Vercel Pull (fetch env vars & link)
+        run: |
+          vercel pull --yes \
+            --environment=${{ matrix.vercel_env }} \
+            --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ matrix.vercel_project_id }}
+
+      - name: Build (Next.js/Node app)
+        run: |
+          npm run build --if-present || echo "no build step"
+
+      - name: Deploy with Vercel
+        id: deploy
+        run: |
+          URL=$(vercel deploy --prebuilt ${{ matrix.prod_flag }} \
+              --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$URL" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ matrix.vercel_project_id }}
+
+      # ---- OPTIONAL: Supabase seed/migrations ----
+      # Provide `seed.sql` in repo root OR /db/seed.sql
+      - name: Seed Supabase (optional)
+        if: ${{ env.SEED_SUPABASE == 'true' }}
+        env:
+          DB_URL: ${{ matrix.supabase_db_url }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          FILE="seed.sql"
+          [ -f "./db/seed.sql" ] && FILE="./db/seed.sql"
+          echo "Seeding with $FILE"
+          psql "$DB_URL" -f "$FILE"
+
+      - name: Output deployed URL
+        run: echo "Deployed ${{ matrix.env_name }}: ${{ steps.deploy.outputs.url }}"
+        
