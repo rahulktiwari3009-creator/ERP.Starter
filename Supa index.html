@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supabase Live Data Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #333; }
+    select { padding: 8px; margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+  </style>
+</head>
+<body>
+  <h1>Supabase Live Data Viewer</h1>
+
+  <label for="tableSelect">Select Table: </label>
+  <select id="tableSelect">
+    <option value="users">Users</option>
+    <option value="products">Products</option>
+    <option value="inventory">Inventory</option>
+    <option value="transactions">Transactions</option>
+    <option value="grn">GRN</option>
+  </select>
+
+  <table id="data-table">
+    <thead id="table-head"></thead>
+    <tbody id="table-body"></tbody>
+  </table>
+
+  <script>
+    const SUPABASE_URL = "https://https://aseejpoohhmphvvnsnvv.supabase.co"; // <- apna Supabase URL
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzZWVqcG9vaGhtcGh2dm5zbnZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NTY5NTcsImV4cCI6MjA3MjMzMjk1N30.WCIgQ966hfaZ6GtUNLlicvGobA7KqA2BEzFEwfFw-tQ"; // <- apna anon key
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentTable = "users";
+    let subscription = null;
+
+    async function loadData(tableName) {
+      const { data, error } = await supabase.from(tableName).select("*");
+
+      if (error) {
+        console.error("Error fetching data:", error);
+        return;
+      }
+
+      renderTable(data);
+    }
+
+    function renderTable(data) {
+      const thead = document.getElementById("table-head");
+      const tbody = document.getElementById("table-body");
+
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="100%">No data found</td></tr>`;
+        return;
+      }
+
+      // Table Header
+      const headerRow = document.createElement("tr");
+      Object.keys(data[0]).forEach(col => {
+        const th = document.createElement("th");
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+
+      // Table Body
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        Object.values(row).forEach(val => {
+          const td = document.createElement("td");
+          td.textContent = val ?? "-";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Setup real-time listener
+    function subscribeToTable(tableName) {
+      if (subscription) {
+        supabase.removeChannel(subscription);
+      }
+
+      subscription = supabase
+        .channel(`public:${tableName}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: tableName },
+          async (payload) => {
+            console.log("Realtime update:", payload);
+            loadData(tableName);
+          }
+        )
+        .subscribe();
+    }
+
+    // Default load
+    loadData("users");
+    subscribeToTable("users");
+
+    // On table change
+    document.getElementById("tableSelect").addEventListener("change", (e) => {
+      currentTable = e.target.value;
+      loadData(currentTable);
+      subscribeToTable(currentTable);
+    });
+  </script>
+</body>
+</html>
