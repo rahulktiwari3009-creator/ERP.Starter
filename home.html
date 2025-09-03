@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Supabase Dashboard</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button, select { margin: 5px; padding: 8px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f4f4f4; }
+  </style>
+</head>
+<body>
+  <h1>Supabase Dashboard</h1>
+
+  <h2>🔑 Login / Signup</h2>
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="signUp()">Sign Up</button>
+  <button onclick="signIn()">Sign In</button>
+  <button onclick="signOut()">Sign Out</button>
+  <p id="authStatus"></p>
+
+  <hr>
+  <h2>📦 Add Product</h2>
+  <input id="pname" type="text" placeholder="Product Name">
+  <input id="pqty" type="number" placeholder="Quantity">
+  <button onclick="addProduct()">Add Product</button>
+
+  <hr>
+  <h2>📊 View Tables</h2>
+  <label for="tableSelect">Select Table:</label>
+  <select id="tableSelect">
+    <option value="users">Users</option>
+    <option value="products">Products</option>
+    <option value="inventory">Inventory</option>
+    <option value="transactions">Transactions</option>
+    <option value="grn">GRN</option>
+  </select>
+  <button onclick="loadTable()">Load Data</button>
+
+  <table id="data-table">
+    <thead id="table-head"></thead>
+    <tbody id="table-body"></tbody>
+  </table>
+
+  <script>
+    // TODO: Replace with your Supabase URL & Anon Key
+    const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
+    const SUPABASE_KEY = "YOUR_ANON_KEY";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function signUp() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const { error } = await supabase.auth.signUp({ email, password });
+      document.getElementById("authStatus").innerText = error ? error.message : "User created!";
+    }
+
+    async function signIn() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      document.getElementById("authStatus").innerText = error ? error.message : "Logged in!";
+    }
+
+    async function signOut() {
+      await supabase.auth.signOut();
+      document.getElementById("authStatus").innerText = "Logged out!";
+      document.getElementById("table-head").innerHTML = "";
+      document.getElementById("table-body").innerHTML = "";
+    }
+
+    async function addProduct() {
+      const name = document.getElementById("pname").value;
+      const qty = parseInt(document.getElementById("pqty").value);
+      const { error } = await supabase.from("products").insert([{ name, qty }]);
+      if (error) {
+        alert("Error: " + error.message);
+      } else {
+        alert("Product added!");
+        loadTable();
+      }
+    }
+
+    async function loadTable() {
+      const tableName = document.getElementById("tableSelect").value;
+      const { data, error } = await supabase.from(tableName).select("*");
+
+      const thead = document.getElementById("table-head");
+      const tbody = document.getElementById("table-body");
+
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="100%">Error: ${error.message}</td></tr>`;
+        return;
+      }
+
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="100%">No data</td></tr>`;
+        return;
+      }
+
+      const headerRow = document.createElement("tr");
+      Object.keys(data[0]).forEach(col => {
+        const th = document.createElement("th");
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        Object.values(row).forEach(val => {
+          const td = document.createElement("td");
+          td.textContent = val ?? "-";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
